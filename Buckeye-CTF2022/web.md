@@ -105,8 +105,70 @@ app.listen(port, () => {
 A little `node index.js` will launch our webserver.<br>
 Now, we just have to DM the bot with our url :<br>
 `http://MACHINE_IP:PORT/owl`<br>
-All we need to do now is to check our console !
+All we need to do now is to check our console !<br>
 ![img.png](img/owl_flag.png)
+<br><br><br><hr>
 
 ### quizbot
+```
+https://discord.gg/q4qtnrKd
+```
+**Attachements :**
+- [bot.py](https://github.com/cscosu/buckeyectf-2022-public/blob/master/web/quizbot/bot.py)
+
+#### Solution
+We see in the description that there is a Discord link. We're joining it.<br>
+As we join we receive a message from a bot : `quizbot`. We can imagine that this CTF is another discord bot cracking.<br>
+The message looks like this :<br>
+![img.png](img/quizbot_welcomeMsg.png)<br>
+We try to react with 👶 for example, and we can see that on the discord server we now have the role `Thoroughly research and solve the challenge`<br>
+![img_1.png](img/quizbot_testRole.png)<br>
+Ok, so that's great. It's fun. Let's try `!quiz` :<br>
+![img_2.png](img/quizbot_testQuiz.png)<br>
+Ok... Well strange but let's do the example to test :<br>
+![img_3.png](img/quizbot_testAnswer.png)<br>
+Right, we can see that the bot replied with our first response, and that we have a new role on the Discord server :<br>
+![img_4.png](img/quizbot_newRoleQuiz.png)<br>
+Let's now check the attachement `bot.py` that should be the source code.<br>
+Well yeah it is. So, as the other bot, let's see what's vulnerable.<br>
+At first, I had a struggle to find what to do. There is no flag, no hidden flag file, nothing related to a flag.<br>
+But.. when we go back to the Discord server, we can see that some users have the admin role, even though they aren't admin on the official CTF Discord server...<br>
+So we can guess that it has something to do with the roles. So... what can give us a role that we choose ?<br>
+In fact, so, in the source code, we can search for the functions that gives a member a role : `member.add_roles(role)`<br>
+And there is only on the event `raw_reaction_add` that a role name is manipulated by an input and not hard-coded : 
+```python
+if str(emoji) == line_reaction:
+    role = discord.utils.get(guild.roles, name=role_name)
+    if member:
+        await member.add_roles(role)
+```
+And how do we get here ?
+```python
+if (
+    message.author != client.user
+    or user == client.user
+):
+    return
+
+lines = message.content.split("\n")[1:]
+for line in lines:
+    try:
+        line_reaction, role_name = line.strip().split(" ", 1)
+```
+So, we need to have a message, only sent by the bot, that contains line break(s) and that have the pattern :<br>
+`:emoji: role name`<br>
+So, how can we make the bot writing something that we personally want ?<br>
+Remember `!quiz` command ? It writes the first answer of the quiz.<br>
+What is we put some line break and a pattern so we can react to this message with the emoji we want and get a role like.. the admin role ?<br>
+So let's try...<br>
+![img_5.png](img/quizbot_hackingAnswer.png)<br>
+So we have a message that has the template we want. What if we try to react to this message with 👀 ?<br>
+![img_6.png](img/quizbot_reactHackedAnswer.png)<br>
+And now, back onto the Discord server :<br>
+![img_7.png](img/quizbot_omgAdminRole.png)<br>
+We now have access to a new private channels reserved to admins !<br>
+![img_8.png](img/quizbot_secretRoom.png)<br>
+That has a pinned message...<br>
+![img_9.png](img/quizbot_flag.png)<br>
+And there you go !
 
