@@ -147,4 +147,5 @@ print(f"Contract's owner: {contract.functions.getOwner().call()}")
 ```
 Let's check the results!<br>
 ![Tuto solution](./assets/tuto-solution.png)<br>
-So we can see that the owner is indeed my address. So we have validated the challenge, GG!
+So we can see that the owner is indeed my address. So we have validated the challenge, GG!<br>
+PS: You can find full solution code in [solutions folder](./solutions/solve_tuto.py)
