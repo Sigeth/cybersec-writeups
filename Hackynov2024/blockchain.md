@@ -148,4 +148,183 @@ print(f"Contract's owner: {contract.functions.getOwner().call()}")
 Let's check the results!<br>
 ![Tuto solution](./assets/tuto-solution.png)<br>
 So we can see that the owner is indeed my address. So we have validated the challenge, GG!<br>
-PS: You can find full solution code in [solutions folder](./solutions/solve_tuto.py)
+Note: You can find full solution code in [solutions folder](./solutions/solve_tuto.py)
+
+### Lost Treasure
+<!--
+```
+```
+-->
+**Attachements :**
+- [lost-treasure.sol](./sol_scripts/lost-treasure.sol)
+
+#### Solution
+Quick disclaimer: I won't describe how to use the web3 python library as I explained it in the [first blockchain challenge of this ctf](./blockchain.md#tuto-blockchain).<br>
+So looking at the challenge description we need to access to the lost treasure, the chest. We can see in the solidity code that we can retrieve both the submarine and the chest position
+```solidity
+function getSubmarinePosition() public view returns (string[] memory) {
+    return s_submarinePosition;
+}
+
+function getChestPosition() public view returns (string[] memory) {
+    return s_chestMap;
+}
+```
+We also see that the directions to take are hardcoded in the contract but let's pretend we didn't see anything.<br>
+So to begin with, I'll retrieve chest and submarine position in Python.<br>
+In order to do this, I'm first deploying the contract with Remix IDE on the address [0x6c73dF1F981C02177D2CB75134121B3392A03cE3](https://sepolia.etherscan.io/address/0x6c73dF1F981C02177D2CB75134121B3392A03cE3)<br>
+Then, I'm setting up my account and the contract with the ABI given by Remix IDE
+```py
+# [...]
+# there is the regular code to access to the sepolia testnet before
+
+contract_address = "0x6c73dF1F981C02177D2CB75134121B3392A03cE3"
+contract_abi = [
+        {
+            "inputs": [],
+            "name": "getChestPosition",
+            "outputs": [
+                {
+                    "internalType": "string[]",
+                    "name": "",
+                    "type": "string[]"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "getSubmarinePosition",
+            "outputs": [
+                {
+                    "internalType": "string[]",
+                    "name": "",
+                    "type": "string[]"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "goBackward",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "goForward",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "goLeft",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "goRight",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "resetPosition",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "undoMoving",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }
+    ]
+
+contract = w3.eth.contract(address=contract_address, abi=contract_abi)
+```
+Great! Now I need to get the chest and submarine position
+```py
+sub_pos = contract.functions.getSubmarinePosition().call()
+chest_pos = contract.functions.getChestPosition().call()
+```
+This will give us the output
+```py
+sub_pos = []
+chest_pos = [
+    "devant",
+    "devant",
+    "droite",
+    "devant",
+    "gauche",
+    "gauche",
+    "derriere",
+    "gauche",
+    "devant",
+    "devant",
+    "gauche",
+    "gauche",
+    "derriere",
+    "derriere"
+]
+```
+What to do now ? Well, I guessed you needed to have the submarine at the same place of the chest. Which basically means `sub_pos == chest_pos`<br>
+But we can't modify the sub_pos just like this, we need to use the functions given to us. Basically, we will use the functions that adds a string to the submarine position.<br>
+If we were to translate what I said in Python, we would use a `match` case (or a `switch` case, it's just the keyword that changes)
+```py
+for pos in chest_pos:
+    print(pos)
+    contractFunc = None
+    match pos:
+        case "devant":
+            contractFunc = contract.functions.goForward()
+        case "derriere":
+            contractFunc = contract.functions.goBackward()
+        case "droite":
+            contractFunc = contract.functions.goRight()
+        case "gauche":
+            contractFunc = contract.functions.goLeft()
+```
+So for each direction possible, I'm "translating" it to its contract function.<br>
+From there, I just have to build, sign and send the transaction.
+```py
+    transaction = contractFunc.build_transaction({
+        'from': account.address,
+        'nonce': w3.eth.get_transaction_count(account.address),
+        'gas': 100000,
+        'gasPrice': w3.to_wei('40', 'gwei'),
+    })
+
+    signed_txn = w3.eth.account.sign_transaction(transaction, priv_key)
+
+    sent_transaction = w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+
+    print(f"Send transaction {sent_transaction.hex()}")
+```
+And then, check the transaction has been set and processed
+```py
+    sleep(30) # from time import sleep. This is important because the transaction takes time to appear
+
+    transaction_receipt = w3.eth.get_transaction_receipt(sent_transaction)
+    print(f"Transaction receipt: {transaction_receipt}")
+```
+Great! We can then just verify that `sub_pos == chest_pos`
+```py
+sub_pos = contract.functions.getSubmarinePosition().call()
+chest_pos = contract.functions.getChestPosition().call()
+
+print(f"Sub position: {sub_pos}\nChest position: {chest_pos}")
+```
+Let's see...<br>
+![Lost Treasure solution](./assets/lost-treasure-solution.png)<br>
+It's indeed the same, the challenge has been cleared!<br>
+Note: You can find full solution code in [solutions folder](./solutions/solve_lost-treasure.py)
