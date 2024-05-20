@@ -179,76 +179,7 @@ Then, I'm setting up my account and the contract with the ABI given by Remix IDE
 # there is the regular code to access to the sepolia testnet before
 
 contract_address = "0x6c73dF1F981C02177D2CB75134121B3392A03cE3"
-contract_abi = [
-        {
-            "inputs": [],
-            "name": "getChestPosition",
-            "outputs": [
-                {
-                    "internalType": "string[]",
-                    "name": "",
-                    "type": "string[]"
-                }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-        },
-        {
-            "inputs": [],
-            "name": "getSubmarinePosition",
-            "outputs": [
-                {
-                    "internalType": "string[]",
-                    "name": "",
-                    "type": "string[]"
-                }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-        },
-        {
-            "inputs": [],
-            "name": "goBackward",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-        },
-        {
-            "inputs": [],
-            "name": "goForward",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-        },
-        {
-            "inputs": [],
-            "name": "goLeft",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-        },
-        {
-            "inputs": [],
-            "name": "goRight",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-        },
-        {
-            "inputs": [],
-            "name": "resetPosition",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-        },
-        {
-            "inputs": [],
-            "name": "undoMoving",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-        }
-    ]
+contract_abi = [ FULL_ABI_AVAILABLE_IN_FULL_SOLUTION ]
 
 contract = w3.eth.contract(address=contract_address, abi=contract_abi)
 ```
@@ -328,3 +259,67 @@ Let's see...<br>
 ![Lost Treasure solution](./assets/lost-treasure-solution.png)<br>
 It's indeed the same, the challenge has been cleared!<br>
 Note: You can find full solution code in [solutions folder](./solutions/solve_lost-treasure.py)
+
+### Keccak
+<!--
+```
+```
+-->
+**Attachements :**
+- [keccak.sol](./sol_scripts/keccak.sol)
+#### Solution
+So the goal of this challenge is to be owner of the contract. Well to do so there is only one function in the challenge contract
+```solidity
+function changeOwner(bytes32 hash) public {
+    if (hash != keccak256(abi.encodePacked(msg.sender)))
+        revert Keccak__InvalidHash();
+
+    s_owner = msg.sender;
+}
+```
+Basically, this means that we need to send `keccak256(abi.encodePacked(msg.sender))`. But how to do this with our python setup ?<br>
+First, I'll deploy my contract on the address [0x944C56c6a09Fb8ADfEF66ccF01c5dCE44f7fA1aF](https://sepolia.etherscan.io/address/0x944C56c6a09Fb8ADfEF66ccF01c5dCE44f7fA1aF)<br>
+Then I'm defining the contract in my python file
+```py
+# [...]
+# there is the regular code to access to the sepolia testnet before
+
+contract_address = "0x944C56c6a09Fb8ADfEF66ccF01c5dCE44f7fA1aF"
+contract_abi = [ FULL_ABI_AVAILABLE_IN_FULL_SOLUTION ]
+
+contract = w3.eth.contract(address=contract_address, abi=contract_abi)
+```
+Ok so first what is this Keccak thingy ?<br>
+Keccak is more known under its another name: SHA-3. It is a really strong hash algorithm and we just need to use it to hash `abi.encodePacked(msg.sender)`<br>
+So how do we do this ? Well, the `web3` library actually gives us a very useful function: `solidity_keccak()`<br>
+It just need the type of what you want hash, and then its value.<br>
+So we want to hash `msg.sender`, which basically is my address. Implemented in Python it looks like
+```py
+wanted_hash = Web3.solidity_keccak(['address'], [account.address])
+```
+Then we just need to build the transaction with this hash as an argument, sign it and send it, then check its status to see if it has been processed
+```py
+transaction = contract.functions.changeOwner(wanted_hash).build_transaction({
+    'from': account.address,
+    'nonce': w3.eth.get_transaction_count(account.address),
+    'gas': 100000,
+    'gasPrice': w3.to_wei('40', 'gwei'),
+})
+
+signed_txn = w3.eth.account.sign_transaction(transaction, priv_key)
+
+sent_transaction = w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+
+print(f"Send transaction {sent_transaction.hex()}")
+
+sleep(30)
+transaction_receipt = w3.eth.get_transaction_receipt(sent_transaction)
+print(f"Transaction receipt: {transaction_receipt}")
+```
+We then just have to check if we're indeed the owner
+```py
+print(f"Contract's owner: {contract.functions.getOwner().call()}")
+```
+Let's see!<br>
+![Keccak solution](./assets/keccak-solution.png)<br>
+Yep it's me indeed, that's it!
