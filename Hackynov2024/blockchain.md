@@ -1,15 +1,14 @@
 # Blockchain challenges
 ## Table of contents
-- [Tuto blockchain (XX solves)](./blockchain.md#tuto-blockchain)
-- [Lost Treasure (XX solves)](./blockchain.md#lost-treasure)
-- [Keccak (XX solves)](./blockchain.md#keccak)
-- [Keccak 2 (XX solves)](./blockchain.md#keccak2)
+- [Tuto blockchain (16 solves)](./blockchain.md#tuto-blockchain)
+- [Lost Treasure (12 solves)](./blockchain.md#lost-treasure)
+- [Keccak (10 solves)](./blockchain.md#keccak)
+- [Keccak 2 (5 solves)](./blockchain.md#keccak-2)
 
 ### Tuto blockchain
-<!--
 ```
+Vous allez apprendre ici les bases sur les challenges Blockchain. Vous apprendrez à utiliser un wallet sur un réseau Blockchain, déployer vos instances de challenges (smart contract) et appeler des fonctions de ces même contrats.
 ```
--->
 **Attachements :**
 - [tuto.sol](./sol_scripts/tuto.sol)
 
@@ -151,10 +150,9 @@ So we can see that the owner is indeed my address. So we have validated the chal
 Note: You can find full solution code in [solutions folder](./solutions/solve_tuto.py)
 
 ### Lost Treasure
-<!--
 ```
+Vous allez devoir utiliser des fonctions spécifiques du contrat intelligent pour trouver et récupérer un coffre submergé au fond de l'océan ... Déplacez-vous à l'endroit indiqué par la carte pour réussir le challenge.
 ```
--->
 **Attachements :**
 - [lost-treasure.sol](./sol_scripts/lost-treasure.sol)
 
@@ -261,10 +259,9 @@ It's indeed the same, the challenge has been cleared!<br>
 Note: You can find full solution code in [solutions folder](./solutions/solve_lost-treasure.py)
 
 ### Keccak
-<!--
 ```
+Votre mission est de devenir propriétaire de ce contrat intelligent. Sa propriété est protégée par un mécanisme de vérification unique basé sur le hashage et la connaissance de la Blockchain.
 ```
--->
 **Attachements :**
 - [keccak.sol](./sol_scripts/keccak.sol)
 #### Solution
@@ -323,3 +320,80 @@ print(f"Contract's owner: {contract.functions.getOwner().call()}")
 Let's see!<br>
 ![Keccak solution](./assets/keccak-solution.png)<br>
 Yep it's me indeed, that's it!
+Note: You can find full solution code in [solutions folder](./solutions/solve_keccak.py)
+
+### Keccak 2
+```
+Vous allez devoir récupérer un nombre secret en analysant le code du contrat. Votre but est de devenir "owner" du contrat en utilisant vos connaissances sur la Blockchain.
+```
+**Attachements :**
+- [keccak-2.sol](./sol_scripts/keccak-2.sol)
+#### Solution
+Ok so this one is a little bit more special, as it won't be tricky to solve it in Python, but is tricky to guess what to send.<br>
+So let's discover our Solidity script. We need to become the owner once again, so let's see the function that changes the owner
+```solidity
+function changeOwner(uint256 secretNumber) external {
+    bytes32 hash = s_targetContract.getHashNumber();
+    if (hash != keccak256(abi.encode(secretNumber)))
+        revert Keccak2__InvalidHash();
+
+    s_owner = msg.sender;
+}
+```
+So, we need to send a `secretNumber`. How to find it ? Well first we have to know what this `s_targetContract` variable is.<br>
+At the beginning of the contract, we can find this snippet
+```solidity
+import "./Keccak2Target.sol";
+// [...]
+Keccak2Target private s_targetContract =
+        Keccak2Target(0x6Bb436f76fa0d3BC02EdEAB425594B350dd4Ed2B);
+```
+So we know it's apparently a contract named `Keccak2Target` and is located at the address `0x6Bb436f76fa0d3BC02EdEAB425594B350dd4Ed2B`<br>
+Well, let's find this address on [Etherscan](https://sepolia.etherscan.io/address/0x6Bb436f76fa0d3BC02EdEAB425594B350dd4Ed2B)<br>
+Ok, so it looks like this<br>
+![Keccak2Target etherscan main view](./assets/keccak2target_main.png)<br>
+As I need informations about the contract, I will click on the `Contract` tab to see what I can find.<br>
+![Keccak2Target etherscan contract view](./assets/keccak2target_contract.png)<br>
+It seems like the source code has been published! So we can find it on this page and it looks like this
+```solidity
+contract Keccak2Target {
+    uint256 private s_secretNumber;
+
+    constructor(uint256 _secretNumber) {
+        s_secretNumber = _secretNumber;
+    }
+
+    function getHashNumber() external view returns (bytes32) {
+        return keccak256(abi.encode(s_secretNumber));
+    }
+}
+```
+So if we look to our `changeOwner` function from earlier, we see the `Keccak2Target.getHashNumber()` used.<br>
+So I need to know, what is this contructor argument `_secretNumber` ? Knowing it, I would just have to send it to be the owner!<br>
+Luckily enough, if I scroll down a bit on the `Contract` tab on Etherscan...<br>
+![Keccak2Target secret number](./assets/keccak2target_secretnumber.png)<br>
+There it is! Our secret number is `8967850079341`!<br>
+So now I just have to send it to the contract
+```py
+# full solution code can be found in solutions folder
+found_secret_number = 8967850079341
+transaction = contract.functions.changeOwner(found_secret_number).build_transaction({
+    'from': account.address,
+    'nonce': w3.eth.get_transaction_count(account.address),
+    'gas': 100000,
+    'gasPrice': w3.to_wei('40', 'gwei'),
+})
+
+signed_txn = w3.eth.account.sign_transaction(transaction, priv_key)
+sent_transaction = w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+print(f"Send transaction {sent_transaction.hex()}")
+
+sleep(30)
+
+transaction_receipt = w3.eth.get_transaction_receipt(sent_transaction)
+print(f"Transaction receipt: {transaction_receipt}")
+
+print(f"Contract's owner : {contract.functions.getOwner().call()}")
+```
+And there we are, we've became the owner!<br>
+Note: You can find full solution code in [solutions folder](./solutions/solve_keccak2.py)
